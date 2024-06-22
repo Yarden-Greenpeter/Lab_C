@@ -4,13 +4,14 @@ Lab C builds on top of the code infrastructure of the "shell" from lab 2. Natura
 Motivation
 In this lab you will enrich the set of capabilities of your shell by adding job control, pipes, and history. Note that all parts below, except for part 1, are features that should be added to your shell as one program (in however many C functions you wish), that supports all these features.
 
+-------------------------------------------------------------------------------------------
+
 Part 0: preparation
-
 History
-
 Check out the "history" mechanism in the Linux shell. For example, see this link and try it out in a Linux shell.
-
 Reexamine your command interpreter (shell) code from lab 2, and if not done so before, reorganize it to be as modular and extensible as possible,
+
+-------------------------------------------------------------------------------------------
 
 Lab C Parts
 Part 1: An Exercise in Pipes
