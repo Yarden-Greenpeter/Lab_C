@@ -8,68 +8,75 @@ int main() {
     int pipefd[2];
     pid_t child1, child2;
 
-    // Create a pipe
+    fprintf(stderr, "(parent_process>forking…)\n");
     if (pipe(pipefd) == -1) {
         perror("pipe");
         exit(EXIT_FAILURE);
     }
 
-    // Fork the first child process (child1)
     if ((child1 = fork()) == -1) {
         perror("fork");
         exit(EXIT_FAILURE);
     }
 
+    fprintf(stderr, "(parent_process>created process with id: %d)\n", child1);
+
     if (child1 == 0) {
-        // In child1 process
-        // Close the standard output
+        fprintf(stderr, "(child1>redirecting stdout to the write end of the pipe…)\n");
+
         close(STDOUT_FILENO);
-        // Duplicate the write-end of the pipe using dup
         dup(pipefd[1]);
-        // Close the file descriptor that was duplicated
         close(pipefd[1]);
-        // Close the read end of the pipe
         close(pipefd[0]);
-        // Execute "ls -l"
+
+        fprintf(stderr, "(child1>going to execute cmd: ls -l)\n");
+
         execlp("ls", "ls", "-l", (char *)NULL);
-        // If execlp fails
         perror("execlp");
         exit(EXIT_FAILURE);
     } 
 
-    // In parent process
-    // Close the write end of the pipe
+    fprintf(stderr, "(parent_process>closing the write end of the pipe…)\n");
     close(pipefd[1]);
 
-    // Fork the second child process (child2)
     if ((child2 = fork()) == -1) {
         perror("fork");
         exit(EXIT_FAILURE);
     }
 
+    fprintf(stderr, "(parent_process>created process with id: %d)\n", child2);
+
     if (child2 == 0) {
-        // In child2 process
-        // Close the standard input
+        fprintf(stderr, "(child2>redirecting stdin to the read end of the pipe…)\n");
+
         close(STDIN_FILENO);
-        // Duplicate the read-end of the pipe using dup
         dup(pipefd[0]);
-        // Close the file descriptor that was duplicated
         close(pipefd[0]);
-        // Execute "tail -n 2"
+
+        fprintf(stderr, "(child2>going to execute cmd: tail -n 2)\n");
+
         execlp("tail", "tail", "-n", "2", (char *)NULL);
-        // If execlp fails
         perror("execlp");
         exit(EXIT_FAILURE);
     } 
 
-    // In parent process
-    // Close the read end of the pipe
+    fprintf(stderr, "(parent_process>closing the read end of the pipe…)\n");
     close(pipefd[0]);
 
-    // Wait for child1 to terminate
+    fprintf(stderr, "(parent_process>waiting for child processes to terminate…)\n");
     waitpid(child1, NULL, 0);
-    // Wait for child2 to terminate
     waitpid(child2, NULL, 0);
+
+    fprintf(stderr, "(parent_process>exiting…)\n");
 
     return 0;
 }
+
+/*
+    Task 1:
+        1. When the parent process does not close the write end of the pipe,
+            the second child process (child2) that executes tail -n 2 will not terminate properly.
+            This is because tail -n 2 expects the end of the input (EOF) to know when to stop reading from the pipe
+        2. tail -n 2 continue to wait for more data and will not receive an indication that no more data is coming through the pipe.
+        3. the progeam end before the tasks were executed by the children.
+*/
