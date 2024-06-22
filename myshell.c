@@ -7,106 +7,160 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 
-void execute_pipeline(int debugMode) {
-    int pipefd[2];
-    pid_t child1, child2;
+void execute(char *command[], int input_fd, int output_fd, int debugMode) {
+    pid_t pid = fork();
 
-    // Create a pipe
-    if (pipe(pipefd) == -1) {
-        perror("pipe");
+    if (pid == -1) {
+        perror("fork failed");
         exit(EXIT_FAILURE);
     }
 
-    // Fork the first child process (child1)
+    if (pid == 0) {
+        // Child process
+        if (input_fd != STDIN_FILENO) {
+            dup2(input_fd, STDIN_FILENO);
+            close(input_fd);
+        }
+        if (output_fd != STDOUT_FILENO) {
+            dup2(output_fd, STDOUT_FILENO);
+            close(output_fd);
+        }
+
+        if (debugMode) {
+            fprintf(stderr, "PID: %d executing command: %s\n", getpid(), command[0]);
+        }
+
+        execvp(command[0], command);
+        perror("execvp failed");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void execute_pipeline(char *cmd1[], char *cmd2[], int debugMode) {
+    int pipefd[2];
+    pid_t child1, child2;
+
+    if (pipe(pipefd) == -1) {
+        perror("pipe failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // Fork first child for left-hand side command
     if ((child1 = fork()) == -1) {
-        perror("fork");
+        perror("fork failed");
         exit(EXIT_FAILURE);
     }
 
     if (child1 == 0) {
-        // In child1 process
-        if (debugMode) {
-            fprintf(stderr, "PID: %d\n", getpid());
-            fprintf(stderr, "Executing command: ls -l\n");
-        }
-
-        // Close the standard output
-        close(STDOUT_FILENO);
-        // Duplicate the write-end of the pipe using dup
-        dup(pipefd[1]);
-        // Close the file descriptor that was duplicated
-        close(pipefd[1]);
-        // Close the read end of the pipe
-        close(pipefd[0]);
-
-        // Arguments for "ls -l"
-        char *ls_args[] = {"ls", "-l", NULL};
-
-        // Execute "ls -l"
-        execvp(ls_args[0], ls_args);
-
-        // If execvp fails
-        perror("execvp ls -l failed");
-        exit(EXIT_FAILURE);
+        // In the first child process
+        close(pipefd[0]); // Close read end of pipe
+        execute(cmd1, STDIN_FILENO, pipefd[1], debugMode);
+        close(pipefd[1]); // Close write end of pipe
+        exit(EXIT_SUCCESS);
     }
 
-    // In parent process
-    // Close the write end of the pipe
-    close(pipefd[1]);
-
-    // Fork the second child process (child2)
+    // Fork second child for right-hand side command
     if ((child2 = fork()) == -1) {
-        perror("fork");
+        perror("fork failed");
         exit(EXIT_FAILURE);
     }
 
     if (child2 == 0) {
-        // In child2 process
-        if (debugMode) {
-            fprintf(stderr, "PID: %d\n", getpid());
-            fprintf(stderr, "Executing command: tail -n 2\n");
-        }
-
-        // Close the standard input
-        close(STDIN_FILENO);
-        // Duplicate the read-end of the pipe using dup
-        dup(pipefd[0]);
-        // Close the file descriptor that was duplicated
-        close(pipefd[0]);
-
-        // Arguments for "tail -n 2"
-        char *tail_args[] = {"tail", "-n", "2", NULL};
-
-        // Execute "tail -n 2"
-        execvp(tail_args[0], tail_args);
-
-        // If execvp fails
-        perror("execvp tail -n 2 failed");
-        exit(EXIT_FAILURE);
+        // In the second child process
+        close(pipefd[1]); // Close write end of pipe
+        execute(cmd2, pipefd[0], STDOUT_FILENO, debugMode);
+        close(pipefd[0]); // Close read end of pipe
+        exit(EXIT_SUCCESS);
     }
 
-    // In parent process
-    // Close the read end of the pipe
+    // Close pipe ends in parent process
     close(pipefd[0]);
+    close(pipefd[1]);
 
-    // Wait for child1 to terminate
+    // Wait for child processes to complete
     waitpid(child1, NULL, 0);
-    // Wait for child2 to terminate
     waitpid(child2, NULL, 0);
 }
 
 int main(int argc, char **argv) {
+    char cwd[PATH_MAX];
+    char input[2048];
     int debugMode = 0;
 
     if (argc > 1 && strcmp(argv[1], "-d") == 0) {
         debugMode = 1;
     }
 
-    // Directly execute the pipeline without reading input
-    execute_pipeline(debugMode);
+    while (1) {
+        if (getcwd(cwd, sizeof(cwd)) != NULL) {
+            printf("%s$ ", cwd);
+        } else {
+            perror("getcwd failed");
+            continue;
+        }
+
+        if (fgets(input, sizeof(input), stdin) == NULL) {
+            perror("fgets failed");
+            continue;
+        }
+
+        input[strcspn(input, "\n")] = 0;
+
+        // Exit the shell if the command is "quit"
+        if (strcmp(input, "quit") == 0) {
+            break;
+        }
+
+        // Split the input by '|'
+        char *pipe_pos = strchr(input, '|');
+        if (pipe_pos) {
+            *pipe_pos = '\0';
+            pipe_pos++;
+
+            // Split commands into arguments
+            char *cmd1_str = input;
+            char *cmd2_str = pipe_pos;
+
+            // Tokenize command strings into argument arrays
+            char *cmd1[256];
+            char *cmd2[256];
+
+            int i = 0;
+            char *token = strtok(cmd1_str, " ");
+            while (token) {
+                cmd1[i++] = token;
+                token = strtok(NULL, " ");
+            }
+            cmd1[i] = NULL;
+
+            i = 0;
+            token = strtok(cmd2_str, " ");
+            while (token) {
+                cmd2[i++] = token;
+                token = strtok(NULL, " ");
+            }
+            cmd2[i] = NULL;
+
+            // Execute the pipeline
+            execute_pipeline(cmd1, cmd2, debugMode);
+        } else {
+            // No pipe, just a single command
+            char *cmd[256];
+            int i = 0;
+            char *token = strtok(input, " ");
+            while (token) {
+                cmd[i++] = token;
+                token = strtok(NULL, " ");
+            }
+            cmd[i] = NULL;
+
+            execute(cmd, STDIN_FILENO, STDOUT_FILENO, debugMode);
+        }
+    }
 
     return 0;
 }
+
 
 // #include <stdio.h>
 // #include <stdlib.h>
