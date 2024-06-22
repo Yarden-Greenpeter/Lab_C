@@ -18,7 +18,6 @@ Part 1: An Exercise in Pipes
 Note
 This part is independent of the shell, and a preparation for implementing a pipe command in the shell. You should not use the LineParser functions in this task, nor read any command lines. However, you need to declare an array of "strings" containing all of the arguments and ending with 0 to pass to execvp() just like the one returned by parseCmdLines().
 
-
 Here we wish to explore the implementation of a pipeline. In order to achieve such a pipeline, one has to create a pipe and properly redirect the standard output and standard input of processes.
 Please refer to the 'Introduction to Pipelines' section in the reading material.
 
@@ -63,6 +62,7 @@ Comment out step 4 in your code (i.e. on the parent process:do not Close the wri
 Undo the change from the last step. Comment out step 7 in your code. Compile and run your code.
 Undo the change from the last step. Comment out step 4 and step 8 in your code. Compile and run your code.
  
+-------------------------------------------------------------------------------------------
 
 Part 2: Implementing a Pipe in the Shell
 Having learned how to create a pipe between 2 processes/programs in Part 1, we now wish to implement a pipeline inside our own shell. In this part you will extend your shell's capabilities to support pipelines that consist of just one pipe and 2 child processes. That is, support a command line with one pipe between 2 processes resulting from running executable files mentioned in the command line. The scheme uses basically the same mechanism as in part 1, except that now the program to be executed in each child process is determined by the command line.
@@ -73,6 +73,9 @@ Notes:
 The line parser automatically generates a list of cmdLine structures to accommodate pipelines. For instance, when parsing the command "ls | grep .c", two chained cmdLine structures are created, representing ls and grep respectively.
 Your shell must still support all previous features, including input/output redirection from lab 2. Obviously, it makes no sense to redirect the output of the left--hand-side process (as then nothing goes into the pipe), and this should be considered an error, and likewise redirecting the input of the right-hand-side process is an error (as then the pipe output is hanging). In such cases, print an error message to stderr without generating any new processes. It is important to note that commands utilizing both I/O redirection and pipelines are indeed quite common (e.g. "cat < in.txt | tail -n 2 > out.txt").
 As in previous tasks, you must keep your program free of memory leaks.
+
+-------------------------------------------------------------------------------------------
+
 Part 3: Process Manager
 Every program you run using the shell runs as a process. You can get a list of the running processes using the ps program (see: man 1 ps and man 2 ps). In this task we are going to add to your shell an internal "process manager" to manage the process we run in our shell (everything you fork). The process manager will provide 4 operations:
 procs - prints current processes including sleeping, running, and "freshly" terminated processes.
@@ -165,7 +168,7 @@ Test your shell using your looper code from task0b in the following scenario:
     18171       ./looper    Running
     18174       ./looper    Running
     
-    
+-------------------------------------------------------------------------------------------    
 Part 4: Adding the History Mechanism
 Here you will add a history mechanism to your shell. The history mechanism works as follows. Your shell should keep HISTLEN previous command lines in a queue, where HISTLEN is a constant with a value of 20 as a default. The history list is maintained in an 2 dimensional array of size HISTLEN "rows", each with MAX_BUF (200 as a default) characters, containing null terminated (copies of) previous commands. You may wish to use strncpy here to copy a command line into the array. Note that you should keep the UNPARSED command lines in the history list, and NOT the parsed version.
 
