@@ -1,7 +1,7 @@
 CC = gcc
 CFlags = -g -Wall -m32
 
-Sources = myshell.c mypipeline.c
+Sources = myshell.c mypipeline.c LineParser.c
 OFiles = $(Sources:.c=.o)
 Ex = myshell
 ExPipeline = mypipeline
