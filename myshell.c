@@ -27,9 +27,6 @@ typedef struct process {
 
 process *process_list = NULL;
 
-void execute(char *command[], int input_fd, int output_fd, int debugMode);
-
-void execute_pipeline(char *cmd1[], char *cmd2[], char *input_file, char *output_file, int debugMode);
 //Process managment functions
 void addProcess(process **process_list, cmdLine *cmd, pid_t pid) {
     process *new_process = (process *)malloc(sizeof(process));
@@ -41,59 +38,57 @@ void addProcess(process **process_list, cmdLine *cmd, pid_t pid) {
 }
 
 void updateProcessStatus(process *process_list, int pid, int status) {
-    process *p = process_list;
-    while (p != NULL) {
-        if (p->pid == pid) {
-            p->status = status;
+    process *curr_process = process_list;
+    while (curr_process != NULL) {
+        if (curr_process->pid == pid) {
+            curr_process->status = status;
             return;
         }
-        p = p->next;
+        curr_process = curr_process->next;
     }
 }
 
 void updateProcessList(process **process_list) {
-    process *p = *process_list;
+    process *curr_process = *process_list;
     int status;
     pid_t result;
     
-    while (p != NULL) {
-        result = waitpid(p->pid, &status, WNOHANG | WUNTRACED | WCONTINUED);
+    while (curr_process != NULL) {
+        result = waitpid(curr_process->pid, &status, WNOHANG);
         if (result == -1) {
             perror("waitpid failed");
             return;
         }
         if (result > 0) {
             if (WIFEXITED(status) || WIFSIGNALED(status)) {
-                p->status = TERMINATED;
+                curr_process->status = TERMINATED;
             } else if (WIFSTOPPED(status)) {
-                p->status = SUSPENDED;
+                curr_process->status = SUSPENDED;
             } else if (WIFCONTINUED(status)) {
-                p->status = RUNNING;
+                curr_process->status = RUNNING;
             }
         }
-        p = p->next;
+        curr_process = curr_process->next;
     }
 }
 
 void freeProcessList(process *process_list) {
-    process *p;
+    process *curr_process;
     while (process_list != NULL) {
-        p = process_list;
+        curr_process = process_list;
         process_list = process_list->next;
-        free(p);
+        free(curr_process);
     }
 }
 
 void printProcessList(process **process_list) {
     updateProcessList(process_list);
-    
-    printf("PID\t\tCommand\t\tSTATUS\n");
-    process *p = *process_list;
+    process *curr_process = *process_list;
     process *prev = NULL;
-    
-    while (p != NULL) {
+    while (curr_process != NULL) {
+        printf("PID\t\tCommand\t\tSTATUS\n");
         char *status;
-        switch (p->status) {
+        switch (curr_process->status) {
             case RUNNING:
                 status = "Running";
                 break;
@@ -104,20 +99,20 @@ void printProcessList(process **process_list) {
                 status = "Terminated";
                 break;
         }
-        printf("%d\t%s\t%s\n", p->pid, p->cmd->arguments[0], status);
+        printf("%d\t%s\t%s\n", curr_process->pid, curr_process->cmd->arguments[0], status);
         
-        if (p->status == TERMINATED) {
+        if (curr_process->status == TERMINATED) {
             if (prev == NULL) {
-                *process_list = p->next;
+                *process_list = curr_process->next;
             } else {
-                prev->next = p->next;
+                prev->next = curr_process->next;
             }
-            process *to_delete = p;
-            p = p->next;
+            process *to_delete = curr_process;
+            curr_process = curr_process->next;
             free(to_delete);
         } else {
-            prev = p;
-            p = p->next;
+            prev = curr_process;
+            curr_process = curr_process->next;
         }
     }
 }
