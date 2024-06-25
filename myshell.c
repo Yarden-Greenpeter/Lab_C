@@ -110,7 +110,7 @@ void printProcessList(process **process_list) {
                 break;
         }
         
-        printf("%d\t\t%s\t\t%s\n", curr_process->pid, curr_process->cmd->arguments[0], status);
+        printf("%d\t\t%s\t%s\n", curr_process->pid, curr_process->cmd->arguments[0], status);
         
         if (curr_process->status == TERMINATED) {
             if (prev == NULL) {
@@ -411,7 +411,6 @@ int main(int argc, char **argv) {
         if (strcmp(userInput, "quit") == 0) {
             break;
         } else if (strcmp(userInput, "history") == 0) {
-            hist_check = -1;
             print_history(history, hist_count);
             continue;
         } else if (strncmp(userInput, "!!", 2) == 0) {
@@ -480,7 +479,6 @@ int main(int argc, char **argv) {
         }
         
         execute(line, debugMode);
-        freeCmdLines(line);
     }
     
     // Save history to file
